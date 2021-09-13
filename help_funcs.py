@@ -33,16 +33,22 @@ def get_or_create_distance(source, destination):
     # Check the opposite direction
     if not dis:
         dis = Distance.objects(source=destination, destination=source).first()
+    if dis:
+        dis.update(hits=dis.hits+1)
+        return dis.distance_in_km
+
+    if source == destination:
+        new_distance = 0
+
     # Local database not existed
-    if not dis:
+    else:
         # Get the distance from external service
         print("external service")
-        geo_dis = get_geocoder_dis(source, destination)
-        if geo_dis < 0:  # Not found
-            return geo_dis
-        dis = Distance(source=source, destination=destination, distance_in_km=geo_dis)
-    # Update hits counter
-    dis.hits += 1
+        new_distance = get_geocoder_dis(source, destination)
+        if new_distance < 0:  # Not found
+            return new_distance
+    # create Distance model
+    dis = Distance(source=source, destination=destination, distance_in_km=new_distance, hits=1)
     # Save it in local database
     dis.save()
     return dis.distance_in_km
@@ -59,9 +65,11 @@ def create_distance_if_not_exist(source, destination, dist):
     # Checking if object exist in the data base
     dis = Distance.objects(source=destination, destination=source).first()  # opposite path
     if dis:
+        dis.update(distance_in_km=dist)
         return dis
     dis = Distance.objects(source=source, destination=destination).first()
     if dis:
+        dis.update(distance_in_km=dist)
         return dis
     # Create new one and save it into the data base
     dis = Distance(source=source, destination=destination, distance_in_km=dist)
